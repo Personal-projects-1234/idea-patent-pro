@@ -19,12 +19,29 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Generating patent diagrams for idea:', idea.substring(0, 100));
+    console.log('Generating 5 patent diagrams for idea:', idea.substring(0, 100));
 
     const figureDescriptions = [
-      { title: "System Architecture Overview", description: `A technical system architecture diagram showing the main components and their connections for: ${idea.substring(0, 300)}` },
-      { title: "Process Flow Diagram", description: `A detailed process flow diagram showing the step-by-step method for: ${idea.substring(0, 300)}` },
-      { title: "Component Detail View", description: `A detailed component breakdown diagram showing key elements and their relationships for: ${idea.substring(0, 300)}` }
+      { 
+        title: "Figure 1 - System Overview", 
+        description: `A comprehensive system architecture diagram showing all main components, their connections, and the overall structure of the invention. Include reference numerals (10, 20, 30, etc.) for each major component.`
+      },
+      { 
+        title: "Figure 2 - Main Component Detail", 
+        description: `A detailed cross-sectional or exploded view of the primary component showing internal structure, sub-components, and assembly relationships. Label all parts with reference numerals (100, 110, 120, etc.).`
+      },
+      { 
+        title: "Figure 3 - Process Flow Diagram", 
+        description: `A flowchart showing the method of operation with clear process steps, decision points, and flow arrows. Include step numbers (S1, S2, S3, etc.).`
+      },
+      { 
+        title: "Figure 4 - Alternative Embodiment", 
+        description: `An alternative implementation or embodiment showing variations in design or configuration. Use different reference numerals (200, 210, 220, etc.).`
+      },
+      { 
+        title: "Figure 5 - Functional Block Diagram", 
+        description: `A functional block diagram showing the interaction between different modules, data flow, and control signals. Include input/output arrows and functional labels.`
+      }
     ];
 
     const images: string[] = [];
@@ -44,18 +61,23 @@ serve(async (req) => {
             model: 'google/gemini-2.5-flash-image-preview',
             messages: [{
               role: 'user',
-              content: `Generate a clean, professional patent diagram in black and white line art style suitable for a US patent application.
+              content: `Generate a professional USPTO-style patent diagram. The diagram must be:
 
-Requirements:
-- Black lines on pure white background
-- Include numbered reference markers (10, 20, 30, etc.) pointing to key components
-- Professional technical/engineering drawing style
-- Clear labels and annotations
-- No colors, gradients, or shading - only black line art
-- Similar to diagrams found in official USPTO patent filings
+STRICT REQUIREMENTS:
+- Pure black lines on white background ONLY
+- NO colors, NO gradients, NO shading, NO gray tones
+- Clean, precise technical line art
+- Include numbered reference markers (10, 20, 30, 40, etc.) pointing to components with leader lines
+- Professional engineering/technical drawing style
+- Similar to diagrams in official USPTO patent filings
+- Include a title at the bottom: "${figure.title}"
 
-Diagram Type: ${figure.title}
-Subject: ${figure.description}`
+INVENTION: ${idea.substring(0, 500)}
+
+DIAGRAM TYPE: ${figure.title}
+SPECIFIC CONTENT: ${figure.description}
+
+Generate a clean, professional patent figure suitable for a patent application filing.`
             }],
             modalities: ['image', 'text']
           }),
@@ -76,7 +98,7 @@ Subject: ${figure.description}`
       }
     }
 
-    console.log(`Generated ${images.length} patent diagrams`);
+    console.log(`Generated ${images.length} of 5 patent diagrams`);
 
     return new Response(JSON.stringify({ images }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -84,7 +106,10 @@ Subject: ${figure.description}`
 
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      images: []
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
