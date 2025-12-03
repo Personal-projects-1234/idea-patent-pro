@@ -32,46 +32,61 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
           {
             role: 'system',
-            content: `You are a patent prior art search expert. Given an invention idea, identify:
-1. Up to 20 related existing patents with realistic US patent numbers. For each patent, generate a Google Patents URL in the format: https://patents.google.com/patent/US{number}/en
-2. Key competitors in the space with their patent portfolios
+            content: `You are a patent prior art search expert with access to patent databases. Given an invention idea, search for and identify REAL existing patents.
 
-IMPORTANT: Generate realistic patent numbers that follow the US patent format (7-8 digit numbers starting with 7, 8, 9, 10, 11). The Google Patents links must be in the correct format.
+IMPORTANT INSTRUCTIONS:
+1. Search for REAL patents from Google Patents database
+2. Use ACTUAL patent numbers that exist (US patents typically: US + 7-11 digits, or US + year + 7 digits like US20230123456A1)
+3. All URLs must be in the exact format: https://patents.google.com/patent/[PATENT_NUMBER]/en
+4. Find up to 20 conflicting/related patents
+5. Include patents from major companies like Google, Apple, Microsoft, Amazon, IBM, Samsung, etc.
 
-Return results in this exact JSON format:
+PATENT NUMBER FORMATS TO USE:
+- US utility patents: US7123456, US8234567, US9345678, US10456789, US11567890
+- US published applications: US20200123456A1, US20210234567A1, US20220345678A1, US20230456789A1
+- International: WO2020123456A1, EP3456789A1
+
+Return results in this EXACT JSON format:
 {
   "priorArt": [
     {
-      "patentNumber": "US10123456",
-      "title": "Patent Title",
-      "description": "Brief description of what this patent covers and how it relates to the idea",
-      "date": "2023-01-15",
-      "url": "https://patents.google.com/patent/US10123456/en",
+      "patentNumber": "US10123456B2",
+      "title": "Exact Patent Title",
+      "description": "Detailed description of what this patent covers and how it relates to the proposed invention",
+      "date": "2020-03-15",
+      "url": "https://patents.google.com/patent/US10123456B2/en",
       "relevanceScore": 85,
-      "keyOverlap": "The main area where this patent overlaps with the proposed invention"
+      "keyOverlap": "Specific technical feature that overlaps with the proposed invention",
+      "assignee": "Company Name"
     }
   ],
   "competitors": [
     {
       "name": "Company Name",
-      "description": "What they do in this space",
-      "patentCount": 15,
-      "keyPatent": "US10234567",
-      "keyPatentUrl": "https://patents.google.com/patent/US10234567/en",
-      "threatLevel": "high"
+      "description": "What they do in this technology space",
+      "patentCount": 25,
+      "keyPatent": "US10234567B2",
+      "keyPatentUrl": "https://patents.google.com/patent/US10234567B2/en",
+      "threatLevel": "high",
+      "keyProducts": "Related products they sell"
     }
   ]
 }
 
-Try to find as many relevant patents as possible, up to 20. Be thorough and consider all aspects of the invention.`
+Find 20 relevant patents if possible. Be thorough and search across all relevant patent classifications.`
           },
           {
             role: 'user',
-            content: `Find prior art and competitors for this invention. Aim for 20 relevant patents if available:\n\n${idea}`
+            content: `Search for prior art patents related to this invention idea. Find up to 20 conflicting or related patents:
+
+INVENTION:
+${idea}
+
+Return real patent numbers with working Google Patents URLs.`
           }
         ],
       }),
@@ -94,7 +109,14 @@ Try to find as many relevant patents as possible, up to 20. Be thorough and cons
       if (jsonMatch) {
         searchResults = JSON.parse(jsonMatch[1]);
       } else {
-        searchResults = JSON.parse(content);
+        // Try to find JSON in the response
+        const jsonStart = content.indexOf('{');
+        const jsonEnd = content.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+          searchResults = JSON.parse(content.substring(jsonStart, jsonEnd + 1));
+        } else {
+          searchResults = JSON.parse(content);
+        }
       }
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
@@ -102,6 +124,30 @@ Try to find as many relevant patents as possible, up to 20. Be thorough and cons
         priorArt: [],
         competitors: []
       };
+    }
+
+    // Validate and fix URLs
+    if (searchResults.priorArt) {
+      searchResults.priorArt = searchResults.priorArt.map((patent: any) => {
+        // Ensure URL format is correct
+        if (patent.patentNumber && !patent.url) {
+          patent.url = `https://patents.google.com/patent/${patent.patentNumber}/en`;
+        }
+        // Fix URL if it doesn't have the correct format
+        if (patent.url && !patent.url.includes('patents.google.com')) {
+          patent.url = `https://patents.google.com/patent/${patent.patentNumber}/en`;
+        }
+        return patent;
+      });
+    }
+
+    if (searchResults.competitors) {
+      searchResults.competitors = searchResults.competitors.map((competitor: any) => {
+        if (competitor.keyPatent && !competitor.keyPatentUrl) {
+          competitor.keyPatentUrl = `https://patents.google.com/patent/${competitor.keyPatent}/en`;
+        }
+        return competitor;
+      });
     }
 
     console.log(`Found ${searchResults.priorArt?.length || 0} patents and ${searchResults.competitors?.length || 0} competitors`);
