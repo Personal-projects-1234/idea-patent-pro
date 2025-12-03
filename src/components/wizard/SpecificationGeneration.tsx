@@ -41,7 +41,22 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
 
       if (error) throw error;
 
-      setSpecifications(specData);
+      // Handle both string and object responses
+      const formatSpec = (spec: any) => {
+        if (typeof spec === 'string') return spec;
+        if (typeof spec === 'object' && spec !== null) {
+          return Object.entries(spec)
+            .map(([key, value]) => `${key.toUpperCase().replace(/_/g, ' ')}\n\n${value}`)
+            .join('\n\n---\n\n');
+        }
+        return '';
+      };
+      
+      setSpecifications({
+        provisional: formatSpec(specData.provisional),
+        complete: formatSpec(specData.complete),
+        images: specData.images || []
+      });
       
       toast({
         title: "Specifications Generated",
