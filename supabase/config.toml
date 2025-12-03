@@ -1,1 +1,16 @@
 project_id = "gxcnnjqiiitenuhstaal"
+
+[functions.prior-art-search]
+verify_jwt = false
+
+[functions.generate-questions]
+verify_jwt = false
+
+[functions.generate-specifications]
+verify_jwt = false
+
+[functions.final-prior-art-analysis]
+verify_jwt = false
+
+[functions.generate-patent-images]
+verify_jwt = false
