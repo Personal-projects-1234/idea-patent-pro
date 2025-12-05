@@ -19,7 +19,7 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Generating patent specifications for idea:', idea.substring(0, 100));
+    console.log('Generating patent specifications for idea:', idea?.substring(0, 100));
 
     // Generate Provisional Specification
     const provisionalResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -33,76 +33,88 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert patent attorney drafting a PROVISIONAL PATENT APPLICATION. 
-Write a comprehensive provisional specification (minimum 3000 words) with proper patent formatting.
+            content: `You are an expert patent attorney. Write a PROVISIONAL PATENT APPLICATION as plain text (NOT JSON).
 
-Use this EXACT structure with clear headings:
+Write minimum 3000 words with this structure:
 
-# PROVISIONAL PATENT APPLICATION
+PROVISIONAL PATENT APPLICATION
+================================
 
-## TITLE OF INVENTION
-[Descriptive title]
+TITLE OF INVENTION
+------------------
+[Write descriptive title]
 
-## CROSS-REFERENCE TO RELATED APPLICATIONS
-[State if any or "Not Applicable"]
+CROSS-REFERENCE TO RELATED APPLICATIONS
+---------------------------------------
+Not Applicable
 
-## FIELD OF THE INVENTION
-[Technical field - 100-200 words]
+FIELD OF THE INVENTION
+----------------------
+[100-200 words about technical field]
 
-## BACKGROUND OF THE INVENTION
-[Prior art discussion, problems with existing solutions - 400-600 words]
+BACKGROUND OF THE INVENTION
+---------------------------
+[400-600 words about prior art and problems]
 
-## SUMMARY OF THE INVENTION
-[Brief overview of the invention and its advantages - 300-400 words]
+SUMMARY OF THE INVENTION
+------------------------
+[300-400 words overview]
 
-## BRIEF DESCRIPTION OF THE DRAWINGS
-[List figures: Figure 1 shows..., Figure 2 shows..., etc. - at least 5 figures]
+BRIEF DESCRIPTION OF THE DRAWINGS
+---------------------------------
+Figure 1 shows [description]
+Figure 2 shows [description]
+Figure 3 shows [description]
+Figure 4 shows [description]
+Figure 5 shows [description]
 
-## DETAILED DESCRIPTION OF THE INVENTION
-[Comprehensive technical description - 1500-2000 words minimum, including:
-- Preferred embodiments
-- Alternative embodiments
-- Technical specifications
-- How it works
-- Materials and components]
+DETAILED DESCRIPTION OF THE INVENTION
+-------------------------------------
+[1500-2000 words with technical details, embodiments, components]
 
-## CLAIMS
-[Write 15-25 claims in proper patent claim format:
-1. Independent claims (broad)
-2. Dependent claims (specific features)
-Each claim must be a single sentence starting with "A..." or "The..." for dependent claims]
+CLAIMS
+------
+1. [First independent claim]
+2. The invention of claim 1, wherein [dependent claim]
+3. The invention of claim 1, further comprising [dependent claim]
+[Continue with 15-25 claims total]
 
-## ABSTRACT
-[150-250 words summarizing the invention]
+ABSTRACT
+--------
+[150-250 words summary]
 
-Write in formal patent language. Be thorough and technical.`
+Write in formal patent language. Output as PLAIN TEXT only.`
           },
           {
             role: 'user',
-            content: `Draft a PROVISIONAL patent specification for this invention:
+            content: `Draft a PROVISIONAL patent specification for:
 
-INVENTION IDEA:
-${idea}
+INVENTION: ${idea || 'Not provided'}
 
-PRIOR ART FOUND:
-${JSON.stringify(priorArt?.slice(0, 5) || [])}
+PRIOR ART: ${JSON.stringify(priorArt?.slice(0, 3) || [])}
 
-QUESTIONNAIRE ANSWERS:
-${JSON.stringify(answers || {})}
+ANSWERS: ${JSON.stringify(answers || {})}
 
-Write a complete, detailed provisional specification with all required sections.`
+Write the complete specification as plain text.`
           }
         ],
       }),
     });
 
     if (!provisionalResponse.ok) {
-      console.error('Provisional spec error:', await provisionalResponse.text());
+      const errText = await provisionalResponse.text();
+      console.error('Provisional spec error:', errText);
       throw new Error('Failed to generate provisional specification');
     }
 
     const provisionalData = await provisionalResponse.json();
-    const provisionalSpec = provisionalData.choices[0].message.content;
+    let provisionalSpec = provisionalData.choices[0]?.message?.content || '';
+    
+    // Ensure it's a string
+    if (typeof provisionalSpec !== 'string') {
+      provisionalSpec = JSON.stringify(provisionalSpec, null, 2);
+    }
+    
     console.log('Provisional specification generated, length:', provisionalSpec.length);
 
     // Generate Complete Specification
@@ -117,132 +129,139 @@ Write a complete, detailed provisional specification with all required sections.
         messages: [
           {
             role: 'system',
-            content: `You are an expert patent attorney drafting a COMPLETE PATENT SPECIFICATION following USPTO standards.
-Write an exhaustive complete specification (minimum 5000 words) with proper patent formatting.
+            content: `You are an expert patent attorney. Write a COMPLETE PATENT SPECIFICATION as plain text (NOT JSON).
 
-Use this EXACT structure with clear headings:
+Write minimum 5000 words following USPTO standards:
 
-# COMPLETE PATENT SPECIFICATION
+COMPLETE PATENT SPECIFICATION
+==============================
 
-## TITLE OF INVENTION
+TITLE OF INVENTION
+------------------
 [Descriptive technical title]
 
-## CROSS-REFERENCE TO RELATED APPLICATIONS
-[Reference any related applications or state "Not Applicable"]
+CROSS-REFERENCE TO RELATED APPLICATIONS
+---------------------------------------
+[If any or "Not Applicable"]
 
-## STATEMENT REGARDING FEDERALLY SPONSORED RESEARCH
-[State if applicable or "Not Applicable"]
+STATEMENT REGARDING FEDERALLY SPONSORED RESEARCH
+-------------------------------------------------
+Not Applicable
 
-## FIELD OF THE INVENTION
-[Technical field classification - 150-250 words]
+FIELD OF THE INVENTION
+----------------------
+[150-250 words about technical field]
 
-## BACKGROUND OF THE INVENTION
+BACKGROUND OF THE INVENTION
 
-### Technical Field
-[Detailed technical context - 200-300 words]
+Technical Field
+~~~~~~~~~~~~~~~
+[200-300 words]
 
-### Description of Related Art
-[Comprehensive prior art analysis - 500-700 words discussing existing patents, their limitations, and problems]
+Description of Related Art
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+[500-700 words discussing existing patents]
 
-### Problems with Existing Solutions
-[Specific technical problems - 300-400 words]
+Problems with Existing Solutions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[300-400 words]
 
-## SUMMARY OF THE INVENTION
+SUMMARY OF THE INVENTION
 
-### Objects of the Invention
-[Primary and secondary objectives - 200-300 words]
+Objects of the Invention
+~~~~~~~~~~~~~~~~~~~~~~~~
+[200-300 words]
 
-### Solution Provided
-[How the invention solves the problems - 300-400 words]
+Solution Provided
+~~~~~~~~~~~~~~~~~
+[300-400 words]
 
-### Advantages of the Invention
-[Technical and commercial advantages - 200-300 words]
+Advantages of the Invention
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[200-300 words]
 
-## BRIEF DESCRIPTION OF THE DRAWINGS
-[Detailed figure descriptions:
-- Figure 1: [detailed description]
-- Figure 2: [detailed description]
-- Figure 3: [detailed description]
-- Figure 4: [detailed description]
-- Figure 5: [detailed description]
-Include reference numerals]
+BRIEF DESCRIPTION OF THE DRAWINGS
+---------------------------------
+Figure 1 (Reference numeral 100): [detailed description]
+Figure 2 (Reference numeral 200): [detailed description]
+Figure 3 (Reference numeral 300): [detailed description]
+Figure 4 (Reference numeral 400): [detailed description]
+Figure 5 (Reference numeral 500): [detailed description]
 
-## DETAILED DESCRIPTION OF PREFERRED EMBODIMENTS
+DETAILED DESCRIPTION OF PREFERRED EMBODIMENTS
 
-### Overview
-[General description - 300-400 words]
+Overview
+~~~~~~~~
+[300-400 words]
 
-### First Preferred Embodiment
-[Detailed technical description with reference numerals - 800-1000 words]
+First Preferred Embodiment (Figure 1)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[800-1000 words with reference numerals 10, 12, 14, etc.]
 
-### Second Preferred Embodiment
-[Alternative implementation - 600-800 words]
+Second Preferred Embodiment (Figure 2)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[600-800 words]
 
-### Third Preferred Embodiment
-[Another variation - 500-700 words]
+Third Preferred Embodiment (Figure 3)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[500-700 words]
 
-### Method of Operation
-[Step-by-step operation - 400-600 words]
+Method of Operation
+~~~~~~~~~~~~~~~~~~~
+[400-600 words]
 
-### Materials and Manufacturing
-[Specific materials, dimensions, manufacturing methods - 300-500 words]
+Materials and Manufacturing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[300-500 words]
 
-### Modifications and Variations
-[Possible modifications within scope - 300-400 words]
+CLAIMS
+------
+Independent Claims:
+1. A [apparatus/method/system] comprising: [comprehensive claim]
 
-## CLAIMS
+Dependent Claims:
+2. The [apparatus/method/system] of claim 1, wherein [specific feature]
+3. The [apparatus/method/system] of claim 1, further comprising [additional feature]
+[Continue with 25-35 total claims]
 
-### Independent Claims
-[Write 5-8 independent claims covering different aspects:
-- Apparatus/device claim
-- Method claim
-- System claim
-Each must be comprehensive and stand alone]
+ABSTRACT
+--------
+[200-300 words]
 
-### Dependent Claims
-[Write 15-25 dependent claims:
-- Claims 2-5 depend on Claim 1
-- Claims 7-10 depend on Claim 6
-- etc.
-Each adds specific features]
-
-## ABSTRACT
-[200-300 words - comprehensive summary]
-
-## SEQUENCE LISTING
-[If applicable, or omit]
-
-Write in formal USPTO patent language. Use reference numerals (10, 20, 30, etc.) throughout. Be exhaustive and technically precise.`
+Write in formal USPTO patent language. Use reference numerals throughout. Output as PLAIN TEXT only.`
           },
           {
             role: 'user',
-            content: `Draft a COMPLETE patent specification for this invention:
+            content: `Draft a COMPLETE patent specification for:
 
-INVENTION IDEA:
-${idea}
+INVENTION: ${idea || 'Not provided'}
 
-PRIOR ART FOUND:
-${JSON.stringify(priorArt?.slice(0, 5) || [])}
+PRIOR ART: ${JSON.stringify(priorArt?.slice(0, 3) || [])}
 
-COMPETITORS:
-${JSON.stringify(competitors?.slice(0, 3) || [])}
+COMPETITORS: ${JSON.stringify(competitors?.slice(0, 2) || [])}
 
-QUESTIONNAIRE ANSWERS:
-${JSON.stringify(answers || {})}
+ANSWERS: ${JSON.stringify(answers || {})}
 
-Write an exhaustive, detailed complete specification with all required sections. Use reference numerals. Be thorough.`
+Write the complete specification as plain text with all sections.`
           }
         ],
       }),
     });
 
     if (!completeResponse.ok) {
-      console.error('Complete spec error:', await completeResponse.text());
+      const errText = await completeResponse.text();
+      console.error('Complete spec error:', errText);
       throw new Error('Failed to generate complete specification');
     }
 
     const completeData = await completeResponse.json();
-    const completeSpec = completeData.choices[0].message.content;
+    let completeSpec = completeData.choices[0]?.message?.content || '';
+    
+    // Ensure it's a string
+    if (typeof completeSpec !== 'string') {
+      completeSpec = JSON.stringify(completeSpec, null, 2);
+    }
+    
     console.log('Complete specification generated, length:', completeSpec.length);
 
     return new Response(JSON.stringify({
@@ -257,8 +276,8 @@ Write an exhaustive, detailed complete specification with all required sections.
     console.error('Error generating specifications:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error',
-      provisional: '',
-      complete: '',
+      provisional: 'Error generating provisional specification. Please try again.',
+      complete: 'Error generating complete specification. Please try again.',
       images: []
     }), {
       status: 500,
