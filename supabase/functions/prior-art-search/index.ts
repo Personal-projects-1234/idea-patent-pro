@@ -100,6 +100,37 @@ Return valid JSON with patent data.`
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI API error:', response.status, errorText);
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'You have run out of AI credits. Please add more credits in Settings → Workspace → Usage.',
+            priorArt: [],
+            competitors: [],
+            isCreditsError: true
+          }),
+          { 
+            status: 402,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Too many requests. Please wait a moment and try again.',
+            priorArt: [],
+            competitors: [],
+            isRateLimitError: true
+          }),
+          { 
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
       throw new Error(`AI API error: ${response.status}`);
     }
 
