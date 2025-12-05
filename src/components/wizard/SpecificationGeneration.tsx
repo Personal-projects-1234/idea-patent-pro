@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Image as ImageIcon, Download, RefreshCw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { FileText, Image as ImageIcon, Download, RefreshCw, Edit, Eye } from "lucide-react";
 import { PatentData } from "@/pages/Wizard";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,7 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(true);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
+  const [editMode, setEditMode] = useState<'provisional' | 'complete' | null>(null);
   const [specifications, setSpecifications] = useState({
     provisional: "",
     complete: "",
@@ -42,30 +44,37 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
 
       if (error) throw error;
 
-      // Handle both string and object responses
-      const formatSpec = (spec: any) => {
-        if (typeof spec === 'string') return spec;
-        if (typeof spec === 'object' && spec !== null) {
-          return Object.entries(spec)
-            .map(([key, value]) => `${key.toUpperCase().replace(/_/g, ' ')}\n\n${value}`)
-            .join('\n\n---\n\n');
-        }
-        return '';
-      };
+      // Ensure we have strings
+      const provisional = typeof specData?.provisional === 'string' 
+        ? specData.provisional 
+        : specData?.provisional 
+          ? JSON.stringify(specData.provisional, null, 2)
+          : 'Failed to generate provisional specification.';
+      
+      const complete = typeof specData?.complete === 'string'
+        ? specData.complete
+        : specData?.complete
+          ? JSON.stringify(specData.complete, null, 2)
+          : 'Failed to generate complete specification.';
       
       setSpecifications({
-        provisional: formatSpec(specData.provisional),
-        complete: formatSpec(specData.complete),
-        images: specData.images || []
+        provisional,
+        complete,
+        images: specData?.images || []
       });
       
       toast({
         title: "Specifications Generated",
-        description: `Generated specifications with ${specData.images?.length || 0} patent diagrams`,
+        description: "Patent specifications have been created successfully",
       });
       
     } catch (error) {
       console.error('Generation error:', error);
+      setSpecifications({
+        provisional: 'Error generating specifications. Please click "Regenerate" to try again.',
+        complete: 'Error generating specifications. Please click "Regenerate" to try again.',
+        images: []
+      });
       toast({
         title: "Error",
         description: "Failed to generate specifications. Please try again.",
@@ -80,29 +89,20 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
     setIsGeneratingImages(true);
     
     try {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      
-      // Call a simplified image generation endpoint
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-patent-images`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ idea: data.idea })
+      const { data: imageData, error } = await supabase.functions.invoke('generate-patent-images', {
+        body: { idea: data.idea }
       });
 
-      if (!response.ok) throw new Error('Failed to generate images');
-      
-      const imageData = await response.json();
+      if (error) throw error;
       
       setSpecifications(prev => ({
         ...prev,
-        images: imageData.images || []
+        images: imageData?.images || []
       }));
       
       toast({
         title: "Images Generated",
-        description: `Generated ${imageData.images?.length || 0} patent diagrams`,
+        description: `Generated ${imageData?.images?.length || 0} patent diagrams`,
       });
       
     } catch (error) {
@@ -138,9 +138,41 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
     const a = document.createElement('a');
     a.href = imageUrl;
     a.download = `patent-figure-${index + 1}.png`;
+    a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const handleSpecChange = (type: 'provisional' | 'complete', value: string) => {
+    setSpecifications(prev => ({
+      ...prev,
+      [type]: value
+    }));
+  };
+
+  const renderSpecContent = (type: 'provisional' | 'complete') => {
+    const content = type === 'provisional' ? specifications.provisional : specifications.complete;
+    const isEditing = editMode === type;
+
+    if (isEditing) {
+      return (
+        <Textarea
+          value={content}
+          onChange={(e) => handleSpecChange(type, e.target.value)}
+          className="min-h-[500px] font-mono text-sm bg-background border-border"
+          placeholder="Enter specification content..."
+        />
+      );
+    }
+
+    return (
+      <Card className="p-6 bg-muted/50 border-border max-h-[500px] overflow-y-auto">
+        <pre className="whitespace-pre-wrap text-sm text-foreground font-mono leading-relaxed">
+          {content || 'No content available. Click "Regenerate" to try again.'}
+        </pre>
+      </Card>
+    );
   };
 
   return (
@@ -164,7 +196,7 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-accent mb-4"></div>
             <p className="text-muted-foreground">Generating detailed specifications...</p>
-            <p className="text-sm text-muted-foreground mt-2">Creating comprehensive patent documents and diagrams</p>
+            <p className="text-sm text-muted-foreground mt-2">This may take a minute</p>
           </div>
         ) : (
           <Tabs defaultValue="provisional" className="w-full">
@@ -179,43 +211,63 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
             <TabsContent value="provisional" className="space-y-4">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-muted-foreground">
-                  Provisional patent application specification
+                  Provisional patent application ({specifications.provisional.length} characters)
                 </p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => downloadDocument('provisional')}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setEditMode(editMode === 'provisional' ? null : 'provisional')}
+                  >
+                    {editMode === 'provisional' ? (
+                      <><Eye className="h-4 w-4 mr-2" />Preview</>
+                    ) : (
+                      <><Edit className="h-4 w-4 mr-2" />Edit</>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => downloadDocument('provisional')}
+                    disabled={!specifications.provisional}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                </div>
               </div>
-              <Card className="p-6 bg-muted/50 border-border max-h-[500px] overflow-y-auto">
-                <pre className="whitespace-pre-wrap text-sm text-foreground font-mono leading-relaxed">
-                  {specifications.provisional}
-                </pre>
-              </Card>
+              {renderSpecContent('provisional')}
             </TabsContent>
             
             <TabsContent value="complete" className="space-y-4">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-muted-foreground">
-                  Complete patent application specification
+                  Complete patent application ({specifications.complete.length} characters)
                 </p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => downloadDocument('complete')}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setEditMode(editMode === 'complete' ? null : 'complete')}
+                  >
+                    {editMode === 'complete' ? (
+                      <><Eye className="h-4 w-4 mr-2" />Preview</>
+                    ) : (
+                      <><Edit className="h-4 w-4 mr-2" />Edit</>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => downloadDocument('complete')}
+                    disabled={!specifications.complete}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                </div>
               </div>
-              <Card className="p-6 bg-muted/50 border-border max-h-[500px] overflow-y-auto">
-                <pre className="whitespace-pre-wrap text-sm text-foreground font-mono leading-relaxed">
-                  {specifications.complete}
-                </pre>
-              </Card>
+              {renderSpecContent('complete')}
             </TabsContent>
             
             <TabsContent value="images" className="space-y-4">
@@ -230,13 +282,13 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
                   disabled={isGeneratingImages}
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${isGeneratingImages ? 'animate-spin' : ''}`} />
-                  {isGeneratingImages ? 'Generating...' : 'Regenerate'}
+                  {isGeneratingImages ? 'Generating...' : 'Generate Diagrams'}
                 </Button>
               </div>
               {isGeneratingImages ? (
                 <div className="text-center py-12 bg-muted/50 rounded-lg">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent mb-4"></div>
-                  <p className="text-muted-foreground">Generating patent diagrams...</p>
+                  <p className="text-muted-foreground">Generating 5 patent diagrams...</p>
                 </div>
               ) : specifications.images.length > 0 ? (
                 <div className="grid md:grid-cols-2 gap-4">
@@ -272,12 +324,25 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
                     disabled={isGeneratingImages}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Generate Patent Diagrams
+                    Generate 5 Patent Diagrams
                   </Button>
                 </div>
               )}
             </TabsContent>
           </Tabs>
+        )}
+
+        {!isGenerating && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={generateSpecifications}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Regenerate All Specifications
+            </Button>
+          </div>
         )}
       </Card>
 
@@ -287,7 +352,7 @@ const SpecificationGeneration = ({ data, onNext, onBack }: SpecificationGenerati
         </Button>
         <Button 
           onClick={handleContinue} 
-          disabled={isGenerating}
+          disabled={isGenerating || !specifications.provisional}
           className="bg-gradient-hero text-white hover:opacity-90 transition-smooth"
         >
           Continue to Final Analysis
