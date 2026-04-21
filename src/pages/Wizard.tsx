@@ -30,8 +30,8 @@ const Wizard = () => {
 
   const steps = [
     { number: 1, title: "Idea Input", component: IdeaInput },
-    { number: 2, title: "Prior Art Search", component: PriorArtSearch },
-    { number: 3, title: "Questionnaire", component: Questionnaire },
+    { number: 2, title: "Questionnaire", component: Questionnaire },
+    { number: 3, title: "Prior Art Search", component: PriorArtSearch },
     { number: 4, title: "Specifications", component: SpecificationGeneration },
     { number: 5, title: "Final Analysis", component: FinalResults }
   ];

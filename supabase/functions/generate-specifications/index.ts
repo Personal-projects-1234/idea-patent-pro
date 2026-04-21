@@ -103,7 +103,15 @@ Write the complete specification as plain text.`
 
     if (!provisionalResponse.ok) {
       const errText = await provisionalResponse.text();
-      console.error('Provisional spec error:', errText);
+      console.error('Provisional spec error:', provisionalResponse.status, errText);
+      if (provisionalResponse.status === 402) {
+        return new Response(JSON.stringify({
+          error: 'You have run out of AI credits. Please add more in Settings → Workspace → Usage.',
+          provisional: 'AI credits exhausted. Please add more credits and try again.',
+          complete: 'AI credits exhausted. Please add more credits and try again.',
+          images: []
+        }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
       throw new Error('Failed to generate provisional specification');
     }
 
