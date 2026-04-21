@@ -78,7 +78,7 @@ const IdeaInput = ({ data, onNext }: IdeaInputProps) => {
             disabled={idea.trim().length < 20 || isSubmitting}
             className="bg-gradient-hero text-white hover:opacity-90 transition-smooth"
           >
-            {isSubmitting ? "Processing..." : "Continue to Prior Art Search"}
+            {isSubmitting ? "Processing..." : "Continue to Questionnaire"}
           </Button>
         </div>
       </div>

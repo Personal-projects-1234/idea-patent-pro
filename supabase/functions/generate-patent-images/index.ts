@@ -58,7 +58,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-image-preview',
+            model: 'google/gemini-2.5-flash-image',
             messages: [{
               role: 'user',
               content: `Generate a professional USPTO-style patent diagram. The diagram must be:
@@ -89,9 +89,18 @@ Generate a clean, professional patent figure suitable for a patent application f
           if (imageUrl) {
             images.push(imageUrl);
             console.log(`Successfully generated Figure ${i + 1}`);
+          } else {
+            console.error(`No image returned for Figure ${i + 1}:`, JSON.stringify(imageData).substring(0, 500));
           }
         } else {
-          console.error(`Failed to generate Figure ${i + 1}:`, await imageResponse.text());
+          const errText = await imageResponse.text();
+          console.error(`Failed to generate Figure ${i + 1} (${imageResponse.status}):`, errText);
+          if (imageResponse.status === 402) {
+            return new Response(JSON.stringify({
+              error: 'You have run out of AI credits. Please add more in Settings → Workspace → Usage.',
+              images
+            }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
         }
       } catch (imgError) {
         console.error(`Error generating figure ${i + 1}:`, imgError);

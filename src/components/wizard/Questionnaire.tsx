@@ -38,9 +38,7 @@ const Questionnaire = ({ data, onNext, onBack }: QuestionnaireProps) => {
     try {
       const { data: questionsData, error } = await supabase.functions.invoke('generate-questions', {
         body: { 
-          idea: data.idea,
-          priorArt: data.priorArt,
-          competitors: data.competitors 
+          idea: data.idea
         }
       });
 
@@ -157,7 +155,7 @@ const Questionnaire = ({ data, onNext, onBack }: QuestionnaireProps) => {
           disabled={isLoading || isSubmitting}
           className="bg-gradient-hero text-white hover:opacity-90 transition-smooth"
         >
-          {isSubmitting ? "Processing..." : "Generate Specifications"}
+          {isSubmitting ? "Processing..." : "Continue to Prior Art Search"}
         </Button>
       </div>
     </div>

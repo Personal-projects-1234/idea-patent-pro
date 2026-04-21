@@ -243,7 +243,7 @@ const PriorArtSearch = ({ data, onNext, onBack }: PriorArtSearchProps) => {
             disabled={isSearching}
             className="bg-gradient-hero text-white hover:opacity-90 transition-smooth"
           >
-            Continue to Questions
+            Continue to Specifications
           </Button>
         </div>
       </div>
